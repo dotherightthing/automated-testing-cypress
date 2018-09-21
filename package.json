@@ -1,0 +1,45 @@
+{
+  "name": "automated-testing-cypress",
+  "description": "Experiments in automated testing using Cypress.io",
+  "version": "0.1.0",
+  "author": [
+    {
+      "name": "Dan Smith",
+      "email": "dev@dotherightthing.co.nz"
+    }
+  ],
+  "homepage": "https://github.com/dotherightthing/automated-testing-cypress",
+  "keywords": [
+    "automated",
+    "testing",
+    "frontend",
+    "accessibility",
+    "interaction",
+    "usability",
+    "jquery",
+    "cypress",
+    "mocha",
+    "chai",
+    "tenon"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dotherightthing/automated-testing-cypress"
+  },
+  "devDependencies": {
+    "eslint": "^4.19.1",
+    "eslint-config-airbnb-base": "^12.1.0",
+    "eslint-plugin-chai-friendly": "^0.4.1",
+    "eslint-plugin-cypress": "^2.0.1",
+    "eslint-plugin-import": "^2.12.0",
+    "eslint-plugin-json": "^1.2.0"
+  },
+  "dependencies": {
+    "cypress": "^3.1.0",
+    "normalize-html-whitespace": "^0.2.0",
+    "tenon-node": "^0.4.1"
+  },
+  "scripts": {
+    "cypress:open": "cypress open"
+  }
+}
