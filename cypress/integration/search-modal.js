@@ -34,7 +34,8 @@ describe('Search modal', function () {
       // load local web page
       cy.visit('http://0.0.0.0:4567/statics/home.html');
 
-      // TODO: observe Ajax request - cypress/integration/examples/issues/ajax-html
+      // TODO: observe Ajax HTML request
+      // https://github.com/dotherightthing/cypress-test-tiny-ajax-html/tree/master/cypress/integration/ajax-html
 
       // check that the search button exists
       cy.get('.b-nav-primary [data-modaal-ajax-search]').as('searchNav');
