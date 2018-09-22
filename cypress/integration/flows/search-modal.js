@@ -374,6 +374,7 @@ describe('Search modal', function () {
       // clicking should show the hideshow
       // timeout allows for animation
       cy.get('@revealTrigger1', { timeout: 5000 })
+        .scrollIntoView()
         .click()
         .should('have.class', 'is-opened');
 
@@ -426,6 +427,7 @@ describe('Search modal', function () {
       // clicking should hide the hideshow
       // timeout allows for animation
       cy.get('@revealTrigger3', { timeout: 5000 })
+        .scrollIntoView()
         .click()
         .should('not.have.class', 'is-opened');
 
