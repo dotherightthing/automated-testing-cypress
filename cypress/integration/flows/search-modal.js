@@ -1,18 +1,30 @@
 /**
  * Cypress spec for a search modal
  *
+ * This tests a pre-programmed flow, using Lajax.js + callbacks.
+ *
  * @author dev@dotherightthing.co.nz
  * 
- * @todo Interactive visibility tests refactored to check data attributes
- *       rather than visibility due to https://github.com/cypress-io/cypress/issues/2037
+ * Some tests fail intermittently, e.g.:
+ * - when the target is out of the viewable area,
+ * - when Cypress is triggered on file change
+ * - when Ajax requests imply a certain order
+ *   but Cypress checks states in a machine order
  *
- * @todo Some tests fail when Cypress is triggered on file change.
- * Waiting for the mutable DOM to stabilise to a certain state is considered an anti-pattern
- * https://docs.cypress.io/guides/core-concepts/conditional-testing.html#
+ * Waiting for the mutable DOM to stabilise to a certain state is considered an anti-pattern.
+ *
+ * This is my first Cypress spec, and my next task will be to break down
+ * the screens and test them individually using stubs and fixtures
+ * rather than allowing the modal to build up state.
+ *
+ * @todo https://github.com/cypress-io/cypress/issues/2037 (visibility)
+ * @todo https://github.com/cypress-io/cypress/issues/2507 (ajax route)
  *
  * @see https://www.chaijs.com/api/assert/#method_assert
+ * https://docs.cypress.io/guides/core-concepts/conditional-testing.html
  */
 
+// Test principles:
 // ARRANGE - SET UP APP STATE
 // ACT - INTERACT WITH IT
 // ASSERT - MAKE ASSERTIONS
@@ -29,36 +41,43 @@
 'use strict';
 
 describe('Search modal', function () {
-  describe('Default view', function () {
+  describe('Launch page', function () {
     it('User can launch the modal', function () {
       // load local web page
       cy.visit('http://0.0.0.0:4567/statics/home.html');
 
-      // TODO: observe Ajax HTML request
-      // to check for spinner at the right time
-      // https://github.com/dotherightthing/cypress-test-tiny-ajax-html/tree/master/cypress/integration/ajax-html
-
       // check that the search button exists
       cy.get('.b-nav-primary [data-modaal-ajax-search]').as('searchNav');
-      cy.get('@searchNav').click();
     });
+  });
 
-    it('UI displays the correct elements', function () {
+  describe('Click to launch modal', function () {
+    it('UI shows that modal is being loaded', function () {
+      // check that clicking the button requests the modal
+      cy.get('.b-nav-primary [data-modaal-ajax-search]').as('searchNav');
+      cy.get('@searchNav').click();
+
       // check that the search theming has been applied
       cy.get('.modaal-ajax').as('modal')
-        .should('be.visible')
-        .should('have.class', 'b-modal-js--search');
-
-      cy.get('@modal').find('.modaal-error')
-        .should('not.exist');
+        .should('be.visible');
 
       // check that the spinner appears
-      /*
+      // NOTE: intermittently fails
       cy.get('.b-modal-js .l-ajax-js__inner').as('ajaxSpinner');
       cy.get('@ajaxSpinner')
         .should('have.class', 'l-ajax-js__inner--in')
         .should('be.visible');
-      */
+    });
+  });
+
+  describe('Default view', function () {
+    it('UI displays the correct elements', function () {
+      // check that the search theming has been applied
+      cy.get('.modaal-ajax').as('modal')
+        .should('have.class', 'b-modal-js--search');
+
+      cy.get('@modal').find('.modaal-error')
+        .should('not.exist');
 
       // check that the non-relevant elements are hidden
       cy.get('.b-modal-js #search-filter').as('filter')
@@ -126,16 +145,18 @@ describe('Search modal', function () {
     });
   });
 
-  describe('Results view (No Results with suggestions)', function () {
-    it('UI shows no matching results', function () {
+  describe('Ajax search for results', function () {
+    it('UI shows that a search is in progress', function () {
       // check that the spinner appears
-      /*
       cy.get('.b-modal-js .l-ajax-js__inner').as('ajaxSpinner');
       cy.get('@ajaxSpinner')
         .should('have.class', 'l-ajax-js__inner--in')
         .should('be.visible');
-      */
+    });
+  });
 
+  describe('Results view (No Results with suggestions)', function () {
+    it('UI shows no matching results', function () {
       // check that the filters are shown and the first is selected
       cy.get('.b-modal-js #search-filter').as('filter')
         .should('be.visible');
@@ -161,13 +182,6 @@ describe('Search modal', function () {
       cy.get('.b-modal-js .b-search-suggestions__popular').as('popularSearches')
         .find('button').contains('Bullying').click();
 
-      // check that the spinner appears
-      /*
-      cy.get('.b-modal-js .l-ajax-js__inner').as('ajaxSpinner');
-      cy.get('@ajaxSpinner')
-        .should('have.class', 'l-ajax-js__inner--in')
-        .should('be.visible');
-      */
       // check that the suggestion is input into the search field
       // and the clear button remains visible
       cy.get('.b-modal-js #search-modal').as('searchField')
@@ -177,7 +191,17 @@ describe('Search modal', function () {
         .should('not.have.attr', 'disabled');
 
       // --- the form submits ---
-      // TODO check Ajax request?
+      // TODO check Ajax request
+    });
+  });
+
+  describe('Ajax search for results', function () {
+    it('UI shows that a search is in progress', function () {
+      // check that the spinner appears
+      cy.get('.b-modal-js .l-ajax-js__inner').as('ajaxSpinner');
+      cy.get('@ajaxSpinner')
+        .should('have.class', 'l-ajax-js__inner--in')
+        .should('be.visible');
     });
   });
 
@@ -237,14 +261,16 @@ describe('Search modal', function () {
       // check that the results are cleared
       cy.get('.b-modal-js #search-results-all .b-search-result').as('searchResult')
         .should('have.length', 0);
+    });
+  });
 
+  describe('Ajax search for results', function () {
+    it('UI shows that a search is in progress', function () {
       // check that the spinner appears
-      /*
       cy.get('.b-modal-js .l-ajax-js__inner').as('ajaxSpinner');
       cy.get('@ajaxSpinner')
         .should('have.class', 'l-ajax-js__inner--in')
         .should('be.visible');
-      */
     });
   });
 
@@ -282,19 +308,21 @@ describe('Search modal', function () {
       cy.get('.b-modal-js .b-guide-list-search-and-filter--search--wide .b-search-field__reset').as('clearButton')
         .should('not.have.attr', 'disabled');
 
-      // check that the spinner appears
-      /*
-      cy.get('.b-modal-js .l-ajax-js__inner').as('ajaxSpinner');
-      cy.get('@ajaxSpinner')
-        .should('have.class', 'l-ajax-js__inner--in')
-        .should('be.visible');
-      */
-
       // check that the results are cleared
       /* fails
       cy.get('.b-modal-js #search-results-guides .b-search-result').as('searchResult')
         .should('have.length', 0);
       */
+    });
+  });
+
+  describe('Ajax search for results', function () {
+    it('UI shows that a search is in progress', function () {
+      // check that the spinner appears
+      cy.get('.b-modal-js .l-ajax-js__inner').as('ajaxSpinner');
+      cy.get('@ajaxSpinner')
+        .should('have.class', 'l-ajax-js__inner--in')
+        .should('be.visible');
     });
   });
 
@@ -318,14 +346,16 @@ describe('Search modal', function () {
       // check that the results are cleared
       cy.get('.b-modal-js #search-results-resources .b-search-result').as('searchResult')
         .should('have.length', 0);
+    });
+  });
 
+  describe('Ajax search for results', function () {
+    it('UI shows that a search is in progress', function () {
       // check that the spinner appears
-      /*
       cy.get('.b-modal-js .l-ajax-js__inner').as('ajaxSpinner');
       cy.get('@ajaxSpinner')
         .should('have.class', 'l-ajax-js__inner--in')
         .should('be.visible');
-      */
     });
   });
 
@@ -383,7 +413,7 @@ describe('Search modal', function () {
 
       // clicking should hide the hideshow
       // timeout allows for animation
-      // TODO: fails to collapse
+      // NOTE: this test can be flakey
       cy.get('@revealTrigger1', { timeout: 5000 })
         .click()
         .should('not.have.class', 'is-opened');
@@ -392,7 +422,7 @@ describe('Search modal', function () {
         .should('not.be.visible');
     });
 
-    it('User can use load more to load more results', function () {
+    it('User can request more results', function () {
       // scroll down to visually check what is happening
       // TODO this isn't seen as the focus shifts when the button is clicked
       // or the button disappears too quickly?
