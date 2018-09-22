@@ -136,10 +136,6 @@ describe('Search modal', function () {
         .should('be.visible');
       */
 
-      // check that the supporting information is hidden
-      cy.get('.b-modal-js .b-search-suggestions, .b-modal-js .b-search-suggestions__heading, .b-modal-js .b-search-result').as('searchSuggestionsAndHelp')
-        .should('not.be.visible');
-
       // check that the filters are shown and the first is selected
       cy.get('.b-modal-js #search-filter').as('filter')
         .should('be.visible');
@@ -155,6 +151,10 @@ describe('Search modal', function () {
       // check that the results message is output
       cy.get('.b-modal-js #search-results-summary .b-no-results-message').as('noResultsMessage')
         .contains('Sorry, nothing matches your search “balloons“. Try a different search term or try a popular search.');
+
+      // check that the supporting information is visible
+      cy.get('.b-modal-js .b-search-suggestions, .b-modal-js .b-search-suggestions__heading, .b-modal-js .b-search-result').as('searchSuggestionsAndHelp')
+        .should('be.visible');
     });
 
     it('User can run a popular search', function () {
