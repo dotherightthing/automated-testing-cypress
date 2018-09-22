@@ -13,21 +13,26 @@
  *
  * Waiting for the mutable DOM to stabilise to a certain state is considered an anti-pattern.
  *
+ * Where triggered clicks fail, BM says:
+ * I would simply add an assertion about the element (or something else)
+ * that can guard Cypress from proceeding until the element is ready to receive the click event.
+ * It may be something about its dimensions, or content on the page, or waiting for an XHR, etc.
+ *
  * This is my first Cypress spec, and my next task will be to break down
  * the screens and test them individually using stubs and fixtures
  * rather than allowing the modal to build up state.
  *
- * @todo https://github.com/cypress-io/cypress/issues/2037 (visibility)
- * @todo https://github.com/cypress-io/cypress/issues/2507 (ajax route)
+ * @see https://github.com/cypress-io/cypress/issues/2037 (visibility)
+ * @see https://github.com/cypress-io/cypress/issues/695 (visibility)
+ * @see https://github.com/cypress-io/cypress/issues/2507 (my ajax route issue)
  *
  * @see https://www.chaijs.com/api/assert/#method_assert
- * https://docs.cypress.io/guides/core-concepts/conditional-testing.html
+ * @see https://www.chaijs.com/api/bdd/
+ * @see https://docs.cypress.io/guides/core-concepts/conditional-testing.html
  */
 
 // Test principles:
-// ARRANGE - SET UP APP STATE
-// ACT - INTERACT WITH IT
-// ASSERT - MAKE ASSERTIONS
+// ARRANGE: SET UP APP STATE > ACT: INTERACT WITH IT > ASSERT: MAKE ASSERTIONS
 
 // Aliases are cleared between tests
 // https://stackoverflow.com/questions/49431483/using-aliases-in-cypress
@@ -42,7 +47,7 @@
 
 describe('Search modal', function () {
   describe('Launch page', function () {
-    it('User can launch the modal', function () {
+    it('Modal launch button exists', function () {
       // load local web page
       cy.visit('http://0.0.0.0:4567/statics/home.html');
 
@@ -52,7 +57,7 @@ describe('Search modal', function () {
   });
 
   describe('Click to launch modal', function () {
-    it('UI shows that modal is being loaded', function () {
+    it('Clicking launches the modal', function () {
       // check that clicking the button requests the modal
       cy.get('.b-nav-primary [data-modaal-ajax-search]').as('searchNav');
       cy.get('@searchNav').click();
@@ -60,15 +65,19 @@ describe('Search modal', function () {
       // check that the search theming has been applied
       cy.get('.modaal-ajax').as('modal')
         .should('be.visible');
+    });
+  });
 
+  /* TODO - Fails as happens too fast - cached?
+  describe('Ajax load of HTML', function () {
+    it('UI shows modal is loading', function () {
       // check that the spinner appears
-      // NOTE: intermittently fails
       cy.get('.b-modal-js .l-ajax-js__inner').as('ajaxSpinner');
       cy.get('@ajaxSpinner')
-        .should('have.class', 'l-ajax-js__inner--in')
         .should('be.visible');
     });
   });
+  */
 
   describe('Default view', function () {
     it('UI displays the correct elements', function () {
@@ -80,14 +89,24 @@ describe('Search modal', function () {
         .should('not.exist');
 
       // check that the non-relevant elements are hidden
-      cy.get('.b-modal-js #search-filter').as('filter')
+
+      // check for the element before evaluating its visibility
+      cy.get('.b-modal-js #search-filter', {timeout: 2000}).as('filter');
+      cy.get('@filter')
         .should('not.be.visible');
 
-      cy.get('.b-modal-js #search-results-summary .b-search-results-summary__count').as('resultsCount')
-        .should('not.exist');
+      // within makes for shorter selectors in the test pane
+      // this could be a more efficient alternative to aliases
+      // if the selectors are well named
+      cy.get('.b-modal-js #search-results-summary').within((el) => {
+        // result count
+        cy.get('.b-search-results-summary__count').as('resultsCount')
+          .should('not.exist');
 
-      cy.get('.b-modal-js #search-results-summary .b-no-results-message').as('noResultsMessage')
-        .should('not.exist');
+        // no results message
+        cy.get('.b-no-results-message').as('noResultsMessage')
+          .should('not.exist');
+      });
 
       // check that the supporting information is shown
       cy.get('.b-modal-js .b-search-suggestions, .b-search-suggestions__heading, .b-search-result').as('searchSuggestionsAndHelp')
@@ -117,11 +136,14 @@ describe('Search modal', function () {
 
     it('UI displays a typeahead when 3 characters are entered', function () {
       // typing three letters should launch the typeahead
-      cy.get('.b-modal-js #search-modal').as('searchField')
+      cy.get('.b-modal-js #search-modal').as('searchField');
+
+      cy.get('@searchField')
         .type('ea').should('have.value', 'Lea');
 
       // typing three letters should launch the typeahead
-      cy.get('.b-modal-js #search-modal_listbox').as('typeaheadResults')
+      cy.get('.b-modal-js #search-modal_listbox', {timeout: 2000}).as('typeaheadResults');
+      cy.get('@typeaheadResults')
         .should('be.visible');
 
       cy.get('.b-modal-js .b-tt-js__suggestion').as('typeaheadResult')
@@ -142,15 +164,10 @@ describe('Search modal', function () {
 
       cy.get('@typeaheadResults')
         .should('not.be.visible');
-    });
-  });
 
-  describe('Ajax search for results', function () {
-    it('UI shows that a search is in progress', function () {
       // check that the spinner appears
       cy.get('.b-modal-js .l-ajax-js__inner').as('ajaxSpinner');
       cy.get('@ajaxSpinner')
-        .should('have.class', 'l-ajax-js__inner--in')
         .should('be.visible');
     });
   });
@@ -179,9 +196,46 @@ describe('Search modal', function () {
     });
 
     it('User can run a popular search', function () {
+      // set up a route to listen for the expected Ajax request
+      cy.server();
+
+      // check that the suggestion was registered with Typeahead
+      cy.route({
+        method: 'GET',
+        url: '/ajaxed/test-typeahead-search.json?*',
+        onRequest: (xhr) => {
+          expect(xhr.url).to.include('q=Bullying');
+        }
+      }).as('ajaxTypeahead');
+
+      // check that the suggestion was submitted with the form values
+      cy.route({
+        method: 'GET',
+        url: '/ajaxed/test-ajax-search-step-2-results-update.json?*',
+        onRequest: (xhr) => {
+          expect(xhr.url).to.include('search-modal=Bullying');
+          expect(xhr.url).to.include('search_filter=all');
+
+          // Can I do the Ajax spinner check here? - asked on Gitter
+        }
+      }).as('step2');
+
+      // click the popular search button
       cy.get('.b-modal-js .b-search-suggestions__popular').as('popularSearches')
         .find('button').contains('Bullying').click();
 
+      // check that the spinner appears
+      cy.get('.b-modal-js .l-ajax-js__inner').as('ajaxSpinner');
+      cy.get('@ajaxSpinner')
+        .should('be.visible');
+
+      // wait for the Ajax responses
+      cy.wait(['@ajaxTypeahead', '@step2']);
+    });
+  });
+
+  describe('Results view (Popular Search Results)', function () {
+    it('UI hides irrelevant content', function () {
       // check that the suggestion is input into the search field
       // and the clear button remains visible
       cy.get('.b-modal-js #search-modal').as('searchField')
@@ -190,23 +244,6 @@ describe('Search modal', function () {
       cy.get('.b-modal-js .b-guide-list-search-and-filter--search--wide .b-search-field__reset').as('clearButton')
         .should('not.have.attr', 'disabled');
 
-      // --- the form submits ---
-      // TODO check Ajax request
-    });
-  });
-
-  describe('Ajax search for results', function () {
-    it('UI shows that a search is in progress', function () {
-      // check that the spinner appears
-      cy.get('.b-modal-js .l-ajax-js__inner').as('ajaxSpinner');
-      cy.get('@ajaxSpinner')
-        .should('have.class', 'l-ajax-js__inner--in')
-        .should('be.visible');
-    });
-  });
-
-  describe('Results view (Popular Search Results)', function () {
-    it('UI hides irrelevant content', function () {
       // check that the supporting information is still hidden
       cy.get('.b-modal-js .b-search-suggestions, .b-modal-js .b-search-suggestions__heading').as('searchSuggestionsAndHelp')
         .should('not.be.visible');
@@ -214,8 +251,10 @@ describe('Search modal', function () {
 
     it('UI displays relevant filters', function () {
       // check that the filters are shown and have the totals data
-      cy.get('.b-modal-js #search_filter').as('filter')
-        .scrollIntoView().should('be.visible') // https://github.com/cypress-io/cypress/issues/2037
+      cy.get('.b-modal-js #search_filter', {timeout: 2000}).as('filter');
+
+      cy.get('@filter')
+        .should('be.visible')
         .should('have.attr', 'data-content-filter-totals', '{"all":64,"guides":40,"suggestions":20,"resources":3,"other":0}');
 
       // check that the first filter is selected
@@ -254,27 +293,40 @@ describe('Search modal', function () {
     });
 
     it('User can run a filter/search for Guides', function () {
+      // set up a route to listen for the expected Ajax request
+      cy.server();
+
+      // check that the suggestion was submitted with the form values
+      cy.route({
+        method: 'GET',
+        url: '/ajaxed/test-ajax-search-step-3-results-update.json?*',
+        onRequest: (xhr) => {
+          expect(xhr.url).to.include('search-modal=Bullying');
+          expect(xhr.url).to.include('search_filter=guides');
+        }
+      }).as('step3');
+
       // click the Guides 'filter'
       cy.get('.b-modal-js .b-filter__input[value="guides"] + label').as('guidesRadio')
         .click();
 
-      // check that the results are cleared
-      cy.get('.b-modal-js #search-results-all .b-search-result').as('searchResult')
-        .should('have.length', 0);
-    });
-  });
-
-  describe('Ajax search for results', function () {
-    it('UI shows that a search is in progress', function () {
       // check that the spinner appears
       cy.get('.b-modal-js .l-ajax-js__inner').as('ajaxSpinner');
       cy.get('@ajaxSpinner')
-        .should('have.class', 'l-ajax-js__inner--in')
         .should('be.visible');
+
+      // wait for the Ajax response
+      cy.wait('@step3');
     });
   });
 
   describe('Results view (Guides Filter - Synonymical Term Search Results)', function () {
+    if('check that old results are removed', function() {
+      // check that the results are cleared
+      cy.get('.b-modal-js #search-results-all .b-search-result').as('searchResult')
+        .should('have.length', 0);
+    });
+
     it('UI displays relevant filters', function () {
       // check that filters with matches are enabled
       cy.get('.b-modal-js .b-guide-list-search-and-filter .b-filter__input:not([value="other"])').as('filterNotOther')
@@ -294,11 +346,31 @@ describe('Search modal', function () {
     });
 
     it('User can search on a canonical term', function () {
+      // set up a route to listen for the expected Ajax request
+      cy.server();
+
+      // check that the suggestion was submitted with the form values
+      cy.route({
+        method: 'GET',
+        url: '/ajaxed/test-ajax-search-step-4-results-update.json?*',
+        onRequest: (xhr) => {
+          expect(xhr.url).to.include('search-modal=Child+Aggression+Syndrome');
+          expect(xhr.url).to.include('search_filter=guides');
+        }
+      }).as('step4');
+
       // click the canonical term button
-      // TODO: Cypress says there are two, first fails - what is it?
       cy.get('.b-modal-js #search-results-summary .b-search-results-summary__count').as('resultsCount')
         .find('[data-field-suggestion] .b-button__content').as('resultSummarySuggestionButton')
         .click();
+
+      // check that the spinner appears
+      cy.get('.b-modal-js .l-ajax-js__inner').as('ajaxSpinner');
+      cy.get('@ajaxSpinner')
+        .should('be.visible');
+
+      // wait for the Ajax response
+      cy.wait('@step4');
 
       // check that the suggestion appears in the search field
       // and this causes the clear button to remain visible
@@ -316,16 +388,6 @@ describe('Search modal', function () {
     });
   });
 
-  describe('Ajax search for results', function () {
-    it('UI shows that a search is in progress', function () {
-      // check that the spinner appears
-      cy.get('.b-modal-js .l-ajax-js__inner').as('ajaxSpinner');
-      cy.get('@ajaxSpinner')
-        .should('have.class', 'l-ajax-js__inner--in')
-        .should('be.visible');
-    });
-  });
-
   describe('Results view (Guides Filter - Canonical Term Search Results)', function () {
     it('UI should display the correct elements', function () {
       // canonical term suggestion button should be hidden
@@ -339,27 +401,39 @@ describe('Search modal', function () {
     });
 
     it('User can run a filter/search for Resources', function () {
+      // set up a route to listen for the expected Ajax request
+      cy.server();
+
+      // check that the suggestion was submitted with the form values
+      cy.route({
+        method: 'GET',
+        url: '/ajaxed/test-ajax-search-step-5-results-update.json?*',
+        onRequest: (xhr) => {
+          expect(xhr.url).to.include('search-modal=Child+Aggression+Syndrome');
+          expect(xhr.url).to.include('search_filter=resources');
+        }
+      }).as('step5');
+
       // click the 'filter'
       cy.get('.b-modal-js .b-filter__input[value="resources"] + label').as('filterResources')
         .click();
 
-      // check that the results are cleared
-      cy.get('.b-modal-js #search-results-resources .b-search-result').as('searchResult')
-        .should('have.length', 0);
-    });
-  });
-
-  describe('Ajax search for results', function () {
-    it('UI shows that a search is in progress', function () {
       // check that the spinner appears
       cy.get('.b-modal-js .l-ajax-js__inner').as('ajaxSpinner');
       cy.get('@ajaxSpinner')
-        .should('have.class', 'l-ajax-js__inner--in')
         .should('be.visible');
+
+      // wait for the Ajax response
+      cy.wait('@step5');
     });
   });
 
   describe('Results view (Resources Filter - Search Results)', function () {
+    it('There should be 2 results', function () {
+      cy.get('.b-modal-js #search-results-resources .b-search-result').as('searchResult')
+        .should('have.length', 2);
+    });
+
     it('UI displays relevant filters', function () {
       // check that filters with matches are enabled
       cy.get('.b-modal-js .b-guide-list-search-and-filter .b-filter__input:not([value="other"])').as('filterNotOther')
@@ -393,7 +467,7 @@ describe('Search modal', function () {
       cy.get('.b-modal-js #search-results-resources .b-search-result').as('searchResult');
 
       // by default, hideshow should be hidden
-      cy.get('@searchResult').eq(0).find('.b-hide-show-js-expandmore__button').as('revealTrigger1');
+      cy.get('@searchResult').eq(0).find('.b-hide-show-js-expandmore__button', {timeout: 2000}).as('revealTrigger1');
       cy.get('@revealTrigger1')
         .should('not.have.class', 'is-opened');
 
@@ -403,40 +477,73 @@ describe('Search modal', function () {
 
       // clicking should show the hideshow
       // timeout allows for animation
-      cy.get('@revealTrigger1', { timeout: 5000 })
-        .scrollIntoView()
+      cy.get('@revealTrigger1', { timeout: 2000 })
         .click()
         .should('have.class', 'is-opened');
 
-      cy.get('@revealTarget1', { timeout: 5000 })
+      cy.get('@revealTarget1', { timeout: 2000 })
         .should('be.visible');
 
       // clicking should hide the hideshow
       // timeout allows for animation
       // NOTE: this test can be flakey
-      cy.get('@revealTrigger1', { timeout: 5000 })
-        .click()
+
+      cy.get('@revealTrigger1', { timeout: 2000 })
+        .click();
+
+      cy.get('@revealTrigger1', { timeout: 2000 })
         .should('not.have.class', 'is-opened');
 
-      cy.get('@revealTarget1', { timeout: 5000 })
+      cy.get('@revealTarget1', { timeout: 2000 })
         .should('not.be.visible');
     });
 
-    it('User can request more results', function () {
+    it('User can load more results', function () {
       // scroll down to visually check what is happening
       // TODO this isn't seen as the focus shifts when the button is clicked
       // or the button disappears too quickly?
 
+      // set up a route to listen for the expected Ajax request
+      cy.server();
+
+      // check that the suggestion was submitted with the form values
+      cy.route({
+        method: 'GET',
+        url: '/ajaxed/test-ajax-search-step-6-results-append.json?*',
+        onRequest: (xhr) => {
+          expect(xhr.url).to.include('search-modal=Child+Aggression+Syndrome');
+          expect(xhr.url).to.include('search_filter=resources');
+
+          // check that the spinner appears
+          cy.get('.b-modal-js .l-ajax-js__inner').as('ajaxSpinner');
+          cy.get('@ajaxSpinner')
+            .should('be.visible');
+        }
+      }).as('step6');
+
       // check that the pagination button is output
       cy.get('.b-modal-js #search-results-pagination-button').as('pagination')
-        .scrollIntoView()
         .contains('Load 1 more result');
-
-      // TODO check that the button spinner appears
 
       // click the load more button
       cy.get('@pagination')
-        .click()
+        .click();
+
+      // check that the spinner appears
+      cy.get('.b-modal-js .l-ajax-js__inner').as('ajaxSpinner');
+      cy.get('@ajaxSpinner')
+        .should('be.visible');
+
+      // wait for the Ajax response
+      cy.wait('@step6');
+    });
+  });
+
+  describe('Results', function () {
+
+    it('Pagination removed', function () {
+      cy.get('.b-modal-js #search-results-pagination-button').as('pagination')
+      cy.get('@pagination')
         .should('not.be.visible');
     });
 
@@ -456,21 +563,20 @@ describe('Search modal', function () {
 
       // clicking should hide the hideshow
       // timeout allows for animation
-      cy.get('@revealTrigger3', { timeout: 5000 })
-        .scrollIntoView()
+      cy.get('@revealTrigger3', { timeout: 2000 })
         .click()
         .should('not.have.class', 'is-opened');
 
-      cy.get('@revealTarget3', { timeout: 5000 })
+      cy.get('@revealTarget3', { timeout: 2000 })
         .should('not.be.visible');
 
       // clicking should show the hideshow
       // timeout allows for animation
-      cy.get('@revealTrigger3', { timeout: 5000 })
+      cy.get('@revealTrigger3', { timeout: 2000 })
         .click()
         .should('have.class', 'is-opened');
 
-      cy.get('@revealTarget3', { timeout: 5000 })
+      cy.get('@revealTarget3', { timeout: 2000 })
         .should('be.visible');
     });
   });
