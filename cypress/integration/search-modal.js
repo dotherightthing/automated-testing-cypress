@@ -129,8 +129,12 @@ describe('Search modal', function () {
   describe('Results view (No Results with suggestions)', function () {
     it('UI shows no matching results', function () {
       // check that the spinner appears
-      cy.get('.b-modal-js .l-ajax-js__inner').as('ajaxSpinner')
+      /*
+      cy.get('.b-modal-js .l-ajax-js__inner').as('ajaxSpinner');
+      cy.get('@ajaxSpinner')
+        .should('have.class', 'l-ajax-js__inner--in')
         .should('be.visible');
+      */
 
       // check that the supporting information is hidden
       cy.get('.b-modal-js .b-search-suggestions, .b-modal-js .b-search-suggestions__heading, .b-modal-js .b-search-result').as('searchSuggestionsAndHelp')
@@ -199,6 +203,7 @@ describe('Search modal', function () {
         .should('not.be.disabled');
 
       /*
+      TODO - button disabling disabled as it prevented the form from submitting
       cy.get('.b-modal-js .b-guide-list-search-and-filter .b-filter__input[value="other"]').as('filterOther')
         .should('be.disabled');
       */
@@ -250,6 +255,7 @@ describe('Search modal', function () {
         .should('not.be.disabled');
 
       /*
+      TODO - button disabling disabled as it prevented the form from submitting
       cy.get('.b-modal-js .b-guide-list-search-and-filter .b-filter__input[value="other"]').as('filterOther');
       cy.get('@filterOther').should('be.disabled');
       */
@@ -344,30 +350,45 @@ describe('Search modal', function () {
     });
 
     it('Hide-show is set up correctly', function () {
-      // TODO can these assertions be chained?
+      // NOTE: using .as() with a chained assertion
+      // returns a function rather than a jQuery object
+      // causing an error
+      // It only works when the alias is never used
+      // in which case it simply acts as a label
+      /*
+        cy.get('[data-controls="search-result-expand-5"]').as('revealTrigger1')
+        .should('not.have.class', 'is-opened');
+       */
+
+      cy.get('.b-modal-js #search-results-resources .b-search-result').as('searchResult');
 
       // by default, hideshow should be hidden
-      cy.get('[data-controls="search-result-expand-5"]').as('revealTrigger5')
+      cy.get('@searchResult').eq(0).find('.b-hide-show-js-expandmore__button').as('revealTrigger1');
+      cy.get('@revealTrigger1')
         .should('not.have.class', 'is-opened');
 
-      cy.get('#search-result-expand-5').as('revealTarget5')
-        .should('have.attr', 'data-hidden');
+      cy.get('@searchResult').eq(0).find('.b-hide-show-js-expandmore__to_expand').as('revealTarget1');
+      cy.get('@revealTarget1')
+        .should('not.be.visible');
 
       // clicking should show the hideshow
-      cy.get('@revealTrigger5')
+      // timeout allows for animation
+      cy.get('@revealTrigger1', { timeout: 5000 })
         .click()
         .should('have.class', 'is-opened');
 
-      cy.get('@revealTarget5')
-        .should('not.have.attr', 'data-hidden');
+      cy.get('@revealTarget1', { timeout: 5000 })
+        .should('be.visible');
 
       // clicking should hide the hideshow
-      cy.get('@revealTrigger5')
+      // timeout allows for animation
+      // TODO: fails to collapse
+      cy.get('@revealTrigger1', { timeout: 5000 })
         .click()
         .should('not.have.class', 'is-opened');
 
-      cy.get('@revealTarget5')
-        .should('have.attr', 'data-hidden');
+      cy.get('@revealTarget1', { timeout: 5000 })
+        .should('not.be.visible');
     });
 
     it('User can use load more to load more results', function () {
@@ -386,35 +407,39 @@ describe('Search modal', function () {
       cy.get('@pagination')
         .click()
         .should('not.be.visible');
-
-      // check that the results are output
-      cy.get('.b-modal-js #search-results-resources .b-search-result').as('searchResult')
-        .should('have.length', 3);
     });
 
     it('Show-hide is set up correctly', function () {
+      // check that the results are output
+      cy.get('.b-modal-js #search-results-resources .b-search-result').as('searchResult');
+      cy.get('@searchResult').should('have.length', 3);
+
       // by default, hideshow should be shown
-      cy.get('[data-controls="search-result-expand-6"]').as('revealTrigger6')
+      cy.get('@searchResult').eq(2).find('.b-hide-show-js-expandmore__button').as('revealTrigger3');
+      cy.get('@revealTrigger3')
         .should('have.class', 'is-opened');
 
-      cy.get('#search-result-expand-6').as('revealTarget6')
-        .should('not.have.attr', 'data-hidden');
+      cy.get('@searchResult').eq(2).find('.b-hide-show-js-expandmore__to_expand').as('revealTarget3');
+      cy.get('@revealTarget3')
+        .should('be.visible');
 
       // clicking should hide the hideshow
-      cy.get('@revealTrigger6')
+      // timeout allows for animation
+      cy.get('@revealTrigger3', { timeout: 5000 })
         .click()
         .should('not.have.class', 'is-opened');
 
-      cy.get('@revealTarget6')
-        .should('have.attr', 'data-hidden');
+      cy.get('@revealTarget3', { timeout: 5000 })
+        .should('not.be.visible');
 
       // clicking should show the hideshow
-      cy.get('@revealTrigger6')
+      // timeout allows for animation
+      cy.get('@revealTrigger3', { timeout: 5000 })
         .click()
         .should('have.class', 'is-opened');
 
-      cy.get('@revealTarget6')
-        .should('not.have.attr', 'data-hidden');
+      cy.get('@revealTarget3', { timeout: 5000 })
+        .should('be.visible');
     });
   });
 });
