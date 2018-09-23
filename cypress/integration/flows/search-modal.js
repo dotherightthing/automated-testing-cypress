@@ -22,10 +22,11 @@
  * the screens and test them individually using stubs and fixtures
  * rather than allowing the modal to build up state.
  *
+ * @todo Check visibility of transient Ajax spinner
+ * @todo Check visibility of transient Typeahead (test sometimes fails)
  * @see https://github.com/cypress-io/cypress/issues/2037 (visibility)
  * @see https://github.com/cypress-io/cypress/issues/695 (visibility)
  * @see https://github.com/cypress-io/cypress/issues/2507 (my ajax route issue)
- *
  * @see https://www.chaijs.com/api/assert/#method_assert
  * @see https://www.chaijs.com/api/bdd/
  * @see https://docs.cypress.io/guides/core-concepts/conditional-testing.html
@@ -110,8 +111,17 @@ describe('Search modal', function () {
       });
 
       // check that the supporting information is shown
-      cy.get('.b-modal-js .b-search-suggestions, .b-search-suggestions__heading, .b-search-result').as('searchSuggestionsAndHelp')
-        .should('be.visible');
+      cy.get('.b-modal-js').within((el) => {
+        cy.get('.b-search-suggestions__previous')
+          .should('not.be.visible');
+
+        cy.get('.b-search-suggestions')
+          .should('be.visible');
+
+        cy.get('.b-search-result--help')
+          .should('be.visible')
+          .should('have.length', 3);
+      });
 
       // check that the search field exists
       cy.get('.b-modal-js #search-modal').as('searchField')
@@ -192,9 +202,18 @@ describe('Search modal', function () {
       cy.get('.b-modal-js #search-results-summary .b-no-results-message').as('noResultsMessage')
         .contains('Sorry, nothing matches your search “balloons“. Try a different search term or try a popular search.');
 
-      // check that the supporting information is visible
-      cy.get('.b-modal-js .b-search-suggestions, .b-modal-js .b-search-suggestions__heading, .b-modal-js .b-search-result').as('searchSuggestionsAndHelp')
-        .should('be.visible');
+      // check that the supporting information is shown
+      cy.get('.b-modal-js').within((el) => {
+        cy.get('.b-search-suggestions__previous')
+          .should('not.be.visible');
+
+        cy.get('.b-search-suggestions')
+          .should('be.visible');
+
+        cy.get('.b-search-result--help')
+          .should('be.visible')
+          .should('have.length', 3);
+      });
     });
 
     it('User can run a popular search', function () {
@@ -254,9 +273,17 @@ describe('Search modal', function () {
       cy.get('.b-modal-js .b-guide-list-search-and-filter--search--wide .b-search-field__reset').as('clearButton')
         .should('not.have.attr', 'disabled');
 
-      // check that the supporting information is still hidden
-      cy.get('.b-modal-js .b-search-suggestions, .b-modal-js .b-search-suggestions__heading').as('searchSuggestionsAndHelp')
-        .should('not.be.visible');
+      // check that the supporting information is shown
+      cy.get('.b-modal-js').within((el) => {
+        cy.get('.b-search-suggestions__previous')
+          .should('not.be.visible');
+
+        cy.get('.b-search-suggestions')
+          .should('not.be.visible');
+
+        cy.get('.b-search-result--help')
+          .should('be.visible'); // part of 'All' search results
+      });
     });
 
     it('UI displays relevant filters', function () {
@@ -596,6 +623,93 @@ describe('Search modal', function () {
 
       cy.get('@revealTarget3', { timeout: 2000 })
         .should('be.visible');
+    });
+  });
+
+  describe('Reset', function () {
+
+    it('User can clear/reset search', function () {
+      // scroll to the top of the modal
+      cy.get('.b-modal-js #search-modal').as('searchField')
+      cy.get('@searchField')
+        .scrollIntoView();
+
+      // set up a route to listen for the expected Ajax request
+      cy.server();
+
+      // check that the suggestion was submitted with the form values
+      cy.route({
+        method: 'GET',
+        url: '/ajaxed/test-ajax-search-step-7-results-update.json?*',
+        onRequest: (xhr) => {
+          // expect(xhr.url).to.include('search-modal=');
+          // expect(xhr.url).to.include('search_filter=');
+
+          // Can I do the Ajax spinner check here? - asked on Gitter
+        }
+      }).as('step7');
+
+      // Click the clear button
+      cy.get('.b-modal-js .b-guide-list-search-and-filter--search--wide .b-search-field__reset').as('clearButton')
+        .click();
+
+      cy.wait('@step7');
+    });
+  });
+
+  describe('Reset default view', function () {
+    it('Search field is focussed', function() {
+      // the search field should have focus on modal reset
+      cy.focused()
+        .should('have.attr', 'id', 'search-modal');
+    });
+
+    it('UI displays the correct elements', function () {
+      // TODO add to every test
+      cy.get('.modaal-ajax').as('modal');
+      cy.get('@modal').find('.modaal-error')
+        .should('not.exist');
+
+      // check that the non-relevant elements are hidden
+
+      // check for the element before evaluating its visibility
+      cy.get('.b-modal-js #search-filter', {timeout: 2000}).as('filter');
+      cy.get('@filter')
+        .should('not.be.visible');
+
+      // within makes for shorter selectors in the test pane
+      // this could be a more efficient alternative to aliases
+      // if the selectors are well named
+      cy.get('.b-modal-js #search-results-summary').within((el) => {
+        // result count
+        cy.get('.b-search-results-summary__count').as('resultsCount')
+          .should('not.exist');
+
+        // no results message
+        cy.get('.b-no-results-message').as('noResultsMessage')
+          .should('not.exist');
+      });
+
+      // check that the supporting information is shown
+      cy.get('.b-modal-js').within((el) => {
+        cy.get('.b-search-suggestions__previous')
+          .should('be.visible');
+
+        cy.get('.b-search-suggestions')
+          .should('be.visible');
+
+        cy.get('.b-search-result--help')
+          .should('be.visible')
+          .should('have.length', 3);
+      });
+
+      // check that the search field exists
+      cy.get('.b-modal-js #search-modal').as('searchField')
+        .should('exist');
+
+      // and the clear button is hidden
+      cy.get('.b-modal-js .b-guide-list-search-and-filter--search--wide .b-search-field__reset').as('clearButton')
+        .should('have.attr', 'disabled');
     });
   });
 });
