@@ -661,7 +661,9 @@ describe('Search modal', function () {
     it('Search field is focussed', function() {
       // the search field should have focus on modal reset
       cy.focused()
-        .should('have.attr', 'id', 'search-modal');
+        .should('have.attr', 'id', 'search-modal')
+        // and be empty
+        .should('have.value', '');
     });
 
     it('UI displays the correct elements', function () {
@@ -698,6 +700,11 @@ describe('Search modal', function () {
         cy.get('.b-search-suggestions')
           .should('be.visible');
 
+        // check that the only remaining results are search results
+        cy.get('.b-search-result').not('.b-search-result--help')
+          .should('have.length', 0);
+
+        // and that there are 3
         cy.get('.b-search-result--help')
           .should('be.visible')
           .should('have.length', 3);
