@@ -642,8 +642,8 @@ describe('Search modal', function () {
         method: 'GET',
         url: '/ajaxed/test-ajax-search-step-7-results-update.json?*',
         onRequest: (xhr) => {
-          // expect(xhr.url).to.include('search-modal=');
-          // expect(xhr.url).to.include('search_filter=');
+          // check no value is submitted for search-modal (search field)
+          expect(xhr.url).to.include('search-modal__value=&');
 
           // Can I do the Ajax spinner check here? - asked on Gitter
         }
