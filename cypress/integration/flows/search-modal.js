@@ -160,27 +160,53 @@ describe('Search modal', function () {
       cy.get('.b-modal-js .b-tt-js__suggestion').as('typeaheadResult')
         .should('have.length', 10);
 
+    });
+
+    it('User can select a typeahead suggestion using the keyboard', function () {
       // arrow down arrow to the 3rd suggestion and select it
+      cy.get('.b-modal-js #search-modal').as('searchField');
       cy.get('@searchField')
         .type('{downarrow}{downarrow}{downarrow}');
 
       // check that the 3rd item is highlighted
+      cy.get('.b-modal-js .b-tt-js__suggestion').as('typeaheadResult')
       cy.get('@typeaheadResult').eq(2)
         .should('have.text', 'UDL (Universal Design for Learning)')
         .should('have.class', 'b-tt-js__cursor');
+    });
+
+    it('Pressing enter performs a search for the selected term', function () {
+      // set up a route to listen for the expected Ajax request
+      cy.server();
+
+      // check that the suggestion was submitted with the form values
+      cy.route({
+        method: 'GET',
+        url: '/ajaxed/test-ajax-search-step-1-results-update.json?*',
+        onRequest: (xhr) => {
+          // trailing ampersands ensure that exact matches
+          expect(xhr.url).to.include('search-modal=UDL&');
+          expect(xhr.url).to.include('search-modal__value=Universal+Design+for+Learning&');
+          expect(xhr.url).to.include('search_filter=all&');
+
+          // Cypress.$ = jQuery
+          const $ajaxSpinner = Cypress.$('.b-modal-js .l-ajax-js__inner--in:visible');
+          expect($ajaxSpinner).to.have.lengthOf(1);
+          expect($ajaxSpinner.css('opacity')).to.equal('1'); // as :visible can have opacity:0
+          expect($ajaxSpinner.height()).to.be.at.least(parseInt($ajaxSpinner.css('min-height'), 10));
+        }
+      }).as('step1');
 
       // pressing enter should put the typeahead result into the search field and hide the typeahead
+      cy.get('.b-modal-js #search-modal').as('searchField');
       cy.get('@searchField')
         .type('{enter}').should('have.value', 'UDL');
 
+      cy.get('.b-modal-js #search-modal_listbox', {timeout: 2000}).as('typeaheadResults');
       cy.get('@typeaheadResults')
         .should('not.be.visible');
 
-      // check that the spinner appears
-      cy.get('.b-modal-js .l-ajax-js__inner').as('ajaxSpinner');
-      cy.get('@ajaxSpinner')
-        // .scrollIntoView() // helps Cypress to 'see' elements below the fold - sometimes..
-        .should('be.visible');
+      cy.wait('@step1');
     });
   });
 
@@ -237,7 +263,13 @@ describe('Search modal', function () {
           expect(xhr.url).to.include('search-modal=Bullying');
           expect(xhr.url).to.include('search_filter=all');
 
-          // Can I do the Ajax spinner check here? - asked on Gitter
+          /* Fails
+          // Cypress.$ = jQuery
+          const $ajaxSpinner = Cypress.$('.b-modal-js .l-ajax-js__inner--in:visible');
+          expect($ajaxSpinner).to.have.lengthOf(1);
+          expect($ajaxSpinner.css('opacity')).to.equal('1'); // as :visible can have opacity:0
+          expect($ajaxSpinner.height()).to.be.at.least(parseInt($ajaxSpinner.css('min-height'), 10));
+          */
         }
       }).as('step2');
 
@@ -340,18 +372,18 @@ describe('Search modal', function () {
         onRequest: (xhr) => {
           expect(xhr.url).to.include('search-modal=Bullying');
           expect(xhr.url).to.include('search_filter=guides');
+
+          // Cypress.$ = jQuery
+          const $ajaxSpinner = Cypress.$('.b-modal-js .l-ajax-js__inner--in:visible');
+          expect($ajaxSpinner).to.have.lengthOf(1);
+          expect($ajaxSpinner.css('opacity')).to.equal('1'); // as :visible can have opacity:0
+          expect($ajaxSpinner.height()).to.be.at.least(parseInt($ajaxSpinner.css('min-height'), 10));
         }
       }).as('step3');
 
       // click the Guides 'filter'
       cy.get('.b-modal-js .b-filter__input[value="guides"] + label').as('guidesRadio')
         .click();
-
-      // check that the spinner appears
-      cy.get('.b-modal-js .l-ajax-js__inner').as('ajaxSpinner');
-      cy.get('@ajaxSpinner')
-        // .scrollIntoView() // helps Cypress to 'see' elements below the fold - sometimes..
-        .should('be.visible');
 
       // wait for the Ajax response
       cy.wait('@step3');
@@ -394,6 +426,12 @@ describe('Search modal', function () {
         onRequest: (xhr) => {
           expect(xhr.url).to.include('search-modal=Child+Aggression+Syndrome');
           expect(xhr.url).to.include('search_filter=guides');
+
+          // Cypress.$ = jQuery
+          const $ajaxSpinner = Cypress.$('.b-modal-js .l-ajax-js__inner--in:visible');
+          expect($ajaxSpinner).to.have.lengthOf(1);
+          expect($ajaxSpinner.css('opacity')).to.equal('1'); // as :visible can have opacity:0
+          expect($ajaxSpinner.height()).to.be.at.least(parseInt($ajaxSpinner.css('min-height'), 10));
         }
       }).as('step4');
 
@@ -401,12 +439,6 @@ describe('Search modal', function () {
       cy.get('.b-modal-js #search-results-summary .b-search-results-summary__count').as('resultsCount')
         .find('[data-field-suggestion] .b-button__content').as('resultSummarySuggestionButton')
         .click();
-
-      // check that the spinner appears
-      cy.get('.b-modal-js .l-ajax-js__inner').as('ajaxSpinner');
-      cy.get('@ajaxSpinner')
-        // .scrollIntoView() // helps Cypress to 'see' elements below the fold - sometimes..
-        .should('be.visible');
 
       // wait for the Ajax response
       cy.wait('@step4');
@@ -450,18 +482,20 @@ describe('Search modal', function () {
         onRequest: (xhr) => {
           expect(xhr.url).to.include('search-modal=Child+Aggression+Syndrome');
           expect(xhr.url).to.include('search_filter=resources');
+
+          /* intermiitent fail
+          // Cypress.$ = jQuery
+          const $ajaxSpinner = Cypress.$('.b-modal-js .l-ajax-js__inner--in:visible');
+          expect($ajaxSpinner).to.have.lengthOf(1);
+          expect($ajaxSpinner.css('opacity')).to.equal('1'); // as :visible can have opacity:0
+          expect($ajaxSpinner.height()).to.be.at.least(parseInt($ajaxSpinner.css('min-height'), 10));
+          */
         }
       }).as('step5');
 
       // click the 'filter'
       cy.get('.b-modal-js .b-filter__input[value="resources"] + label').as('filterResources')
         .click();
-
-      // check that the spinner appears
-      cy.get('.b-modal-js .l-ajax-js__inner').as('ajaxSpinner');
-      cy.get('@ajaxSpinner')
-        // .scrollIntoView() // helps Cypress to 'see' elements below the fold - sometimes..
-        .should('be.visible');
 
       // wait for the Ajax response
       cy.wait('@step5');
@@ -555,6 +589,14 @@ describe('Search modal', function () {
           expect(xhr.url).to.include('search-modal=Child+Aggression+Syndrome');
           expect(xhr.url).to.include('search_filter=resources');
           */
+         
+          /* Fails
+          // Cypress.$ = jQuery
+          const $ajaxSpinner = Cypress.$('.b-modal-js .l-ajax-js__inner--in:visible');
+          expect($ajaxSpinner).to.have.lengthOf(1);
+          expect($ajaxSpinner.css('opacity')).to.equal('1'); // as :visible can have opacity:0
+          expect($ajaxSpinner.height()).to.be.at.least(parseInt($ajaxSpinner.css('min-height'), 10));
+          */
         }
       }).as('step6');
 
@@ -645,7 +687,11 @@ describe('Search modal', function () {
           // check no value is submitted for search-modal (search field)
           expect(xhr.url).to.include('search-modal__value=&');
 
-          // Can I do the Ajax spinner check here? - asked on Gitter
+          // Cypress.$ = jQuery
+          const $ajaxSpinner = Cypress.$('.b-modal-js .l-ajax-js__inner--in:visible');
+          expect($ajaxSpinner).to.have.lengthOf(1);
+          expect($ajaxSpinner.css('opacity')).to.equal('1'); // as :visible can have opacity:0
+          expect($ajaxSpinner.height()).to.be.at.least(parseInt($ajaxSpinner.css('min-height'), 10));
         }
       }).as('step7');
 
